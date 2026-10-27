@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TARTS Algorithm Deep-Dive Visualizer (Example 1)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .code-font { font-family: 'Fira Code', monospace; }
+        .frame-transition { transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        .step-math { padding: 1.25rem; border-radius: 1rem; background: linear-gradient(145deg, rgba(15, 23, 42, .96), rgba(30, 41, 59, .72)); }
+        .step-math p { padding: .75rem 0; border-bottom: 1px solid rgba(100, 116, 139, .24); }
+        .step-math p:last-child { border-bottom: 0; padding-bottom: 0; }
+        .step-math strong { display: inline-block; margin-bottom: .2rem; color: #c7d2fe; font-size: 1.05rem; }
+        .step-math code { display: block; margin: .55rem 0; padding: .55rem .8rem; border-radius: .65rem; background: rgba(2, 6, 23, .62); color: #e0e7ff; font-size: .95rem; line-height: 1.75; white-space: normal; overflow-wrap: anywhere; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col">
+
+    <!-- Top Header -->
+    <header class="bg-slate-800 border-b border-slate-700 px-6 py-4 shadow-lg">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-black tracking-tight text-white flex items-center gap-3">
+                    <span class="bg-indigo-600 text-white px-3 py-1 rounded-lg text-lg">TARTS</span>
+                    Step-by-Step Mathematical Visualizer
+                </h1>
+                <p class="text-xs text-slate-400 mt-1">TARTS scheduling explained with Example 1</p>
+            </div>
+            
+            <!-- Controls -->
+            <div class="flex items-center gap-3 bg-slate-900/80 p-1.5 rounded-xl border border-slate-700">
+                <button id="btnPrev" onclick="changeStep(-1)" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-sm font-semibold transition flex items-center gap-2">
+                    <i class="fa-solid fa-arrow-left"></i> Previous
+                </button>
+                <span id="stepCounter" class="text-xs font-bold px-3 py-1 bg-indigo-950 text-indigo-300 rounded-md border border-indigo-800/50">
+                    Step 1 / 8
+                </span>
+                <button id="btnNext" onclick="changeStep(1)" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 rounded-lg text-sm font-semibold transition flex items-center gap-2 shadow-lg shadow-indigo-600/30">
+                    Next Step <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="max-w-7xl mx-auto w-full p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1">
+        
+        <!-- Left Column: Step Details & Exact Formulas (5 Cols) -->
+        <div class="lg:col-span-5 flex flex-col gap-6">
+            
+            <!-- Step Title Card -->
+            <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-xl">
+                <h2 id="stepTitle" class="text-xl font-bold text-white mb-2">System Initial Setup & Input Parameters</h2>
+            </div>
+
+            <!-- Detailed Mathematical Breakdown -->
+            <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-xl flex-1 flex flex-col">
+                <h3 class="text-sm font-bold uppercase tracking-wider text-slate-300 mb-5 flex items-center gap-2">
+                    <i class="fa-solid fa-calculator text-indigo-400"></i> Step math and algorithm
+                </h3>
+                <div id="algorithmNote" class="mb-5"></div>
+                <div id="stepDetails" class="text-base text-slate-100 space-y-5 leading-7 overflow-y-auto max-h-[620px] pr-2">
+                    <!-- Dynamic Text Injected Here -->
+                </div>
+            </div>
+
+            <!-- Queue & Status Tracker -->
+            <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4 shadow-xl">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center justify-between">
+                    <span><i class="fa-solid fa-list-check text-amber-400"></i> Active Task Queue (TL) Status</span>
+                    <span id="remainingTimeSliceText" class="text-slate-300 font-mono text-[11px]">G = 45 ms</span>
+                </h3>
+                <div id="queueContainer" class="flex flex-wrap gap-2 pt-1">
+                    <!-- Dynamic Task Badges -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Visual Diagram & Gantt Chart (7 Cols) -->
+        <div class="lg:col-span-7 flex flex-col gap-6">
+            
+            <!-- Task Spec Table -->
+            <div id="p0TableCard" class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-xl transition-all">
+                <h3 class="text-sm font-bold text-slate-200 mb-3 flex items-center justify-between">
+                    <span><i class="fa-solid fa-table text-indigo-400"></i> Example 1 Task Specifications</span>
+                    <span class="text-xs text-slate-400 font-normal">2 cores (V0, V1)</span>
+                </h3>
+                <div class="mb-3 rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2 text-xs leading-5 text-slate-300">
+                    Thermal values: core start = 59 C; limit = 60 C; ambient = 25 C; B = 0.003049 per ms.
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-900/80 text-slate-400 font-bold border-b border-slate-700">
+                            <tr>
+                                <th class="p-2.5">Task</th>
+                                <th class="p-2.5">Execution (e_i)</th>
+                                <th class="p-2.5">Period (p_i)</th>
+                                <th class="p-2.5">Steady temperature</th>
+                                <th class="p-2.5">Classification</th>
+                            </tr>
+                        </thead>
+                        <tbody id="taskTableBody" class="divide-y divide-slate-700/50">
+                            <!-- Injected -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Gantt Chart Container -->
+            <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-xl flex-1 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-4 border-b border-slate-700 pb-3">
+                        <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                            <i class="fa-solid fa-chart-gantt text-emerald-400"></i> Dynamic Frame-by-Frame Gantt Chart
+                        </h3>
+                        <span class="text-xs font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800 px-2.5 py-1 rounded-full">
+                            Thermal Limit: 60.0°C
+                        </span>
+                    </div>
+
+                    <!-- Core V0 Track -->
+                    <div class="mb-6">
+                        <div class="flex justify-between items-center mb-1.5 text-xs font-bold text-slate-300">
+                            <span class="flex items-center gap-2"><i class="fa-solid fa-server text-indigo-400"></i> Core V0</span>
+                            <span id="v0TempBadge" class="font-mono text-emerald-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-700">Temp: 59.0°C</span>
+                        </div>
+                        <div class="relative h-12 bg-slate-900 rounded-xl border border-slate-700 overflow-hidden flex" id="ganttTrackV0">
+                            <!-- Blocks appended dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Core V1 Track -->
+                    <div class="mb-2">
+                        <div class="flex justify-between items-center mb-1.5 text-xs font-bold text-slate-300">
+                            <span class="flex items-center gap-2"><i class="fa-solid fa-server text-cyan-400"></i> Core V1</span>
+                            <span id="v1TempBadge" class="font-mono text-emerald-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-700">Temp: 59.0°C</span>
+                        </div>
+                        <div class="relative h-12 bg-slate-900 rounded-xl border border-slate-700 overflow-hidden flex" id="ganttTrackV1">
+                            <!-- Blocks appended dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Time Scale Grid -->
+                    <div class="relative h-6 mt-3 border-t border-slate-700/80 text-[10px] font-mono text-slate-400 flex justify-between pt-1">
+                        <span>0ms</span>
+                        <span>10ms</span>
+                        <span>16ms</span>
+                        <span>26ms</span>
+                        <span>29ms</span>
+                        <span>31ms</span>
+                        <span>33ms</span>
+                        <span>35ms</span>
+                        <span>45ms</span>
+                    </div>
+                </div>
+
+                <!-- Legend -->
+                <div class="flex flex-wrap gap-4 pt-4 border-t border-slate-700/60 text-xs text-slate-400 justify-center">
+                    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-red-500"></span> T2 (80°C - Hottest)</span>
+                    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-amber-500"></span> T3 (75°C - Very Hot)</span>
+                    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-blue-500"></span> T0 (60°C - Medium)</span>
+                    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-emerald-500"></span> T1 / T4 (40°C - Cool)</span>
+                    <span class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-slate-700"></span> IDLE Slot</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const tasks = [
+            { id: "T0", e: 10, p: 45, temp: 60, color: "bg-blue-500" },
+            { id: "T1", e: 12, p: 45, temp: 40, color: "bg-emerald-500" },
+            { id: "T2", e: 19, p: 45, temp: 80, color: "bg-red-500" },
+            { id: "T3", e: 25, p: 45, temp: 75, color: "bg-amber-500" },
+            { id: "T4", e: 2, p: 45, temp: 40, color: "bg-teal-400" }
+        ];
+
+        const steps = [
+            {
+                title: "System setup",
+                algorithm: "Algorithm 1 - TARTS(): finds the hyper-period and slice, then calculates each task share and total spare capacity.",
+                v0Temp: "59.0°C",
+                v1Temp: "59.0°C",
+                remG: "G = 45 ms",
+                queue: [
+                    { id: "T3", rem: "25 ms", heat: "75°C" },
+                    { id: "T2", rem: "19 ms", heat: "80°C" },
+                    { id: "T1", rem: "12 ms", heat: "40°C" },
+                    { id: "T0", rem: "10 ms", heat: "60°C" },
+                    { id: "T4", rem: "2 ms", heat: "40°C" }
+                ],
+                v0Blocks: [],
+                v1Blocks: [],
+                details: `
+                    <div class="step-math text-base leading-7">
+<p><strong>1. Slice length</strong><br><code>H = lcm(45,45,45,45,45) = 45 ms</code><br><code>G = min(task deadlines) = 45 ms</code></p>
+<p><strong>2. Required work in this slice</strong><br><code>share = execution * slice / period</code><br><code>T0=10; T1=12; T2=19; T3=25; T4=2 ms</code><br><code>Total work = 68 core-ms</code></p>
+<p><strong>3. Capacity left for cooling</strong><br><code>2 cores * 45 ms - 68 core-ms = 22 spare core-slots</code></p></div>
+                `
+            },
+            {
+                title: "t = 0-16 ms | g = 16 ms",
+                algorithm: "Algorithms 2 and 3 - Task_Schedule() maps the hottest ready tasks to the coolest cores; findMapping() checks the thermal run-time and limits the frame with the frame-length rule.",
+                v0Temp: "60.0°C (Limit Hit)",
+                v1Temp: "59.74°C",
+                remG: "Remaining Slice: 29 ms",
+                queue: [
+                    { id: "T3", rem: "9 ms left", heat: "75°C" },
+                    { id: "T2", rem: "3 ms left", heat: "80°C" },
+                    { id: "T1", rem: "12 ms", heat: "40°C" },
+                    { id: "T0", rem: "10 ms", heat: "60°C" },
+                    { id: "T4", rem: "2 ms", heat: "40°C" }
+                ],
+                v0Blocks: [{ id: "T2", start: 0, dur: 16, width: 35.5, col: "bg-red-500", label: "T2 (16ms)" }],
+                v1Blocks: [{ id: "T3", start: 0, dur: 16, width: 35.5, col: "bg-amber-500", label: "T3 (16ms)" }],
+                details: `
+                    <div class="step-math text-base leading-7">
+<p><strong>1. Pick tasks and cores</strong><br><code>T2: share 19 ms, 80 C -> V0 at 59 C</code><br><code>T3: share 25 ms, 75 C -> V1 at 59 C</code></p>
+<p><strong>2. Temperature-safe run times</strong><br><code>T2: -ln((60-80)/(59-80)) / 0.003049 = 16 ms</code><br><code>T3: 21.167 ms</code></p>
+<p><strong>3. Choose frame length</strong><br><code>g = min(T2 work 19, T3 work 25, T2 safe 16, T3 safe 21) = 16 ms</code></p></div>
+                `
+            },
+            {
+                title: "t = 16-26 ms | g = 10 ms",
+                algorithm: "Algorithms 2 and 3 - Task_Schedule() chooses the next ready tasks; findMapping() checks a temperature-safe mapping. T0 finishes after 10 ms.",
+                v0Temp: "59.40°C (Cooled)",
+                v1Temp: "59.74°C",
+                remG: "Remaining Slice: 19 ms",
+                queue: [
+                    { id: "T3", rem: "9 ms left", heat: "75°C" },
+                    { id: "T1", rem: "2 ms left", heat: "40°C" },
+                    { id: "T2", rem: "3 ms left", heat: "80°C" },
+                    { id: "T4", rem: "2 ms", heat: "40°C" }
+                ],
+                v0Blocks: [
+                    { id: "T2", start: 0, dur: 16, width: 35.5, col: "bg-red-500", label: "T2" },
+                    { id: "T1", start: 16, dur: 10, width: 22.2, col: "bg-emerald-500", label: "T1 (10ms)" }
+                ],
+                v1Blocks: [
+                    { id: "T3", start: 0, dur: 16, width: 35.5, col: "bg-amber-500", label: "T3" },
+                    { id: "T0", start: 16, dur: 10, width: 22.2, col: "bg-blue-500", label: "T0 (10ms) Done" }
+                ],
+                details: `
+                    <div class="step-math text-base leading-7"><p><strong>Assignments</strong><br><code>T1 on V0: 12 ms; T0 on V1: 10 ms</code></p><p><strong>Frame length</strong><br><code>g = min(12,10) = 10 ms</code><br><code>t = 16+10 = 26 ms</code></p></div>
+                `
+            },
+            {
+                title: "t = 26-29 ms | g = 3 ms",
+                algorithm: "Algorithms 2 and 3 - Task_Schedule() resumes the remaining shares; findMapping() caps the frame when T2 has only 3 ms left.",
+                v0Temp: "59.58°C",
+                v1Temp: "59.87°C",
+                remG: "Remaining Slice: 16 ms",
+                queue: [
+                    { id: "T3", rem: "6 ms left", heat: "75°C" },
+                    { id: "T1", rem: "2 ms left", heat: "40°C" },
+                    { id: "T4", rem: "2 ms", heat: "40°C" }
+                ],
+                v0Blocks: [
+                    { id: "T2", start: 0, dur: 16, width: 35.5, col: "bg-red-500", label: "T2" },
+                    { id: "T1", start: 16, dur: 10, width: 22.2, col: "bg-emerald-500", label: "T1" },
+                    { id: "T2", start: 26, dur: 3, width: 6.6, col: "bg-red-500", label: "T2 Done" }
+                ],
+                v1Blocks: [
+                    { id: "T3", start: 0, dur: 16, width: 35.5, col: "bg-amber-500", label: "T3" },
+                    { id: "T0", start: 16, dur: 10, width: 22.2, col: "bg-blue-500", label: "T0" },
+                    { id: "T3", start: 26, dur: 3, width: 6.6, col: "bg-amber-500", label: "T3 (3ms)" }
+                ],
+                details: `
+                    <div class="step-math text-base leading-7">
+<p><strong>1. Work left at t = 26 ms</strong><br><code>T2: 19-16 = 3 ms; T3: 25-16 = 9 ms</code></p>
+<p><strong>2. Same temperature check, using current core temperatures</strong><br><code>V0 = 59.40 C; T2 safe time = -ln((60-80)/(59.40-80))/0.003049 = 9.695 ms</code><br><code>V1 = 59.74 C; T3 safe time = -ln((60-75)/(59.74-75))/0.003049 = 5.636 ms</code></p>
+<p><strong>3. Frame length (whole safe slots)</strong><br><code>T2 safe: 9 slots; T3 safe: 5 slots</code><br><code>g = min(T2 work 3, T3 work 9, T2 safe 9, T3 safe 5) = 3 ms</code></p></div>
+                `
+            },
+            {
+                title: "t = 29-31 ms | g = 2 ms",
+                algorithm: "Algorithms 2 and 3 - Task_Schedule() selects T3 and T4; findMapping() sets the frame to T4's 2 ms remaining share.",
+                v0Temp: "59.67°C",
+                v1Temp: "59.75°C",
+                remG: "Remaining Slice: 14 ms",
+                queue: [
+                    { id: "T3", rem: "4 ms left", heat: "75°C" },
+                    { id: "T1", rem: "2 ms left", heat: "40°C" }
+                ],
+                v0Blocks: [
+                    { id: "T2", start: 0, dur: 16, width: 35.5, col: "bg-red-500", label: "T2" },
+                    { id: "T1", start: 16, dur: 10, width: 22.2, col: "bg-emerald-500", label: "T1" },
+                    { id: "T2", start: 26, dur: 3, width: 6.6, col: "bg-red-500", label: "T2" },
+                    { id: "T3", start: 29, dur: 2, width: 4.4, col: "bg-amber-500", label: "T3" }
+                ],
+                v1Blocks: [
+                    { id: "T3", start: 0, dur: 16, width: 35.5, col: "bg-amber-500", label: "T3" },
+                    { id: "T0", start: 16, dur: 10, width: 22.2, col: "bg-blue-500", label: "T0" },
+                    { id: "T3", start: 26, dur: 3, width: 6.6, col: "bg-amber-500", label: "T3" },
+                    { id: "T4", start: 29, dur: 2, width: 4.4, col: "bg-teal-400", label: "T4 Done" }
+                ],
+                details: `
+                    <div class="step-math text-base leading-7"><p><strong>Remaining shares</strong><br><code>T3: 9-3 = 6 ms; T4: 2 ms</code></p><p><strong>Frame length</strong><br><code>g = min(T3 work 6, T4 work 2, safe-time limits) = 2 ms</code><br><code>t = 29+2 = 31 ms</code><br><code>After this frame: T3 = 6-2 = 4 ms left</code></p></div>
+                `
+            },
+            {
+                title: "t = 31-33 ms | g = 2 ms",
+                algorithm: "Algorithms 2 and 3 - Task_Schedule() runs the final 2 ms of T3 and T1; both shares reach zero.",
+                v0Temp: "59.76°C",
+                v1Temp: "59.63°C",
+                remG: "Remaining Slice: 12 ms",
+                queue: [
+                    { id: "T3", rem: "2 ms left", heat: "75°C" }
+                ],
+                v0Blocks: [
+                    { id: "T2", start: 0, dur: 16, width: 35.5, col: "bg-red-500", label: "T2" },
+                    { id: "T1", start: 16, dur: 10, width: 22.2, col: "bg-emerald-500", label: "T1" },
+                    { id: "T2", start: 26, dur: 3, width: 6.6, col: "bg-red-500", label: "T2" },
+                    { id: "T3", start: 29, dur: 2, width: 4.4, col: "bg-amber-500", label: "T3" },
+                    { id: "T3", start: 31, dur: 2, width: 4.4, col: "bg-amber-500", label: "T3" }
+                ],
+                v1Blocks: [
+                    { id: "T3", start: 0, dur: 16, width: 35.5, col: "bg-amber-500", label: "T3" },
+                    { id: "T0", start: 16, dur: 10, width: 22.2, col: "bg-blue-500", label: "T0" },
+                    { id: "T3", start: 26, dur: 3, width: 6.6, col: "bg-amber-500", label: "T3" },
+                    { id: "T4", start: 29, dur: 2, width: 4.4, col: "bg-teal-400", label: "T4" },
+                    { id: "T1", start: 31, dur: 2, width: 4.4, col: "bg-emerald-500", label: "T1 Done" }
+                ],
+                details: `
+                    <div class="step-math text-base leading-7"><p><strong>Remaining shares</strong><br><code>T3: 4 ms remaining; T1: 2 ms remaining</code></p><p><strong>Frame length</strong><br><code>g = min(T3 work 4, T1 work 2, safe-time limits) = 2 ms</code><br><code>t = 31+2 = 33 ms</code></p></div>
+                `
+            },
+            {
+                title: "t = 33-35 ms | g = 2 ms",
+                algorithm: "Algorithm 3 - findMapping() uses Spare-Slot Allocation: V0 idles for 2 ms while V1 finishes T3.",
+                v0Temp: "58.52°C (Cooled)",
+                v1Temp: "59.72°C",
+                remG: "Remaining Slice: 10 ms",
+                queue: [
+                    { id: "All Tasks Finished!", rem: "0 ms", heat: "Done" }
+                ],
+                v0Blocks: [
+                    { id: "T2", start: 0, dur: 16, width: 35.5, col: "bg-red-500", label: "T2" },
+                    { id: "T1", start: 16, dur: 10, width: 22.2, col: "bg-emerald-500", label: "T1" },
+                    { id: "T2", start: 26, dur: 3, width: 6.6, col: "bg-red-500", label: "T2" },
+                    { id: "T3", start: 29, dur: 2, width: 4.4, col: "bg-amber-500", label: "T3" },
+                    { id: "T3", start: 31, dur: 2, width: 4.4, col: "bg-amber-500", label: "T3" },
+                    { id: "IDLE", start: 33, dur: 2, width: 4.4, col: "bg-slate-700", label: "IDLE" }
+                ],
+                v1Blocks: [
+                    { id: "T3", start: 0, dur: 16, width: 35.5, col: "bg-amber-500", label: "T3" },
+                    { id: "T0", start: 16, dur: 10, width: 22.2, col: "bg-blue-500", label: "T0" },
+                    { id: "T3", start: 26, dur: 3, width: 6.6, col: "bg-amber-500", label: "T3" },
+                    { id: "T4", start: 29, dur: 2, width: 4.4, col: "bg-teal-400", label: "T4" },
+                    { id: "T1", start: 31, dur: 2, width: 4.4, col: "bg-emerald-500", label: "T1" },
+                    { id: "T3", start: 33, dur: 2, width: 4.4, col: "bg-amber-500", label: "T3 Done" }
+                ],
+                details: `
+                    <div class="step-math text-base leading-7"><p><strong>Remaining work</strong><br><code>T3: 2 ms</code></p><p><strong>Idle allocation</strong><br><code>V1 runs T3 for 2 ms; V0 idle for 2 ms</code><br><code>sp = 22-2 = 20 core-slots</code><br><code>t = 33+2 = 35 ms</code></p></div>
+                `
+            },
+            {
+                title: "t = 35-45 ms | g = 10 ms",
+                algorithm: "Algorithm 1 - TARTS() closes the 45 ms slice; both cores idle for the final 10 ms.",
+                v0Temp: "58.52°C",
+                v1Temp: "58.69°C",
+                remG: "Slice Complete (45 / 45 ms)",
+                queue: [
+                    { id: "Slice Complete", rem: "0 ms", heat: "Cool" }
+                ],
+                v0Blocks: [
+                    { id: "T2", start: 0, dur: 16, width: 35.5, col: "bg-red-500", label: "T2" },
+                    { id: "T1", start: 16, dur: 10, width: 22.2, col: "bg-emerald-500", label: "T1" },
+                    { id: "T2", start: 26, dur: 3, width: 6.6, col: "bg-red-500", label: "T2" },
+                    { id: "T3", start: 29, dur: 2, width: 4.4, col: "bg-amber-500", label: "T3" },
+                    { id: "T3", start: 31, dur: 2, width: 4.4, col: "bg-amber-500", label: "T3" },
+                    { id: "IDLE", start: 33, dur: 2, width: 4.4, col: "bg-slate-700", label: "IDLE" },
+                    { id: "IDLE", start: 35, dur: 10, width: 22.2, col: "bg-slate-700", label: "IDLE (10ms)" }
+                ],
+                v1Blocks: [
+                    { id: "T3", start: 0, dur: 16, width: 35.5, col: "bg-amber-500", label: "T3" },
+                    { id: "T0", start: 16, dur: 10, width: 22.2, col: "bg-blue-500", label: "T0" },
+                    { id: "T3", start: 26, dur: 3, width: 6.6, col: "bg-amber-500", label: "T3" },
+                    { id: "T4", start: 29, dur: 2, width: 4.4, col: "bg-teal-400", label: "T4" },
+                    { id: "T1", start: 31, dur: 2, width: 4.4, col: "bg-emerald-500", label: "T1" },
+                    { id: "T3", start: 33, dur: 2, width: 4.4, col: "bg-amber-500", label: "T3" },
+                    { id: "IDLE", start: 35, dur: 10, width: 22.2, col: "bg-slate-700", label: "IDLE (10ms)" }
+                ],
+                details: `
+                    <div class="step-math text-base leading-7"><p><strong>Remaining slice</strong><br><code>45-35 = 10 ms</code></p><p><strong>Both cores idle</strong><br><code>2*10 = 20 core-slots; sp = 20-20 = 0</code></p></div>
+                `
+            }
+        ];
+
+        let currentStepIndex = 0;
+
+        function renderTable() {
+            const body = document.getElementById("taskTableBody");
+            body.innerHTML = tasks.map(t => `
+                <tr class="hover:bg-slate-700/30">
+                    <td class="p-2.5 font-bold flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full ${t.color}"></span> ${t.id}
+                    </td>
+                    <td class="p-2.5 code-font">${t.e} ms</td>
+                    <td class="p-2.5 code-font">${t.p} ms</td>
+                    <td class="p-2.5 code-font font-bold ${t.temp >= 75 ? 'text-red-400' : t.temp >= 60 ? 'text-amber-400' : 'text-emerald-400'}">${t.temp}°C</td>
+                    <td class="p-2.5">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${t.temp >= 75 ? 'bg-red-500/10 text-red-400 border border-red-500/20' : t.temp >= 60 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}">
+                            ${t.temp >= 80 ? 'Hottest' : t.temp >= 75 ? 'Very Hot' : t.temp >= 60 ? 'Medium' : 'Cool'}
+                        </span>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function updateStepView() {
+            const step = steps[currentStepIndex];
+
+            document.getElementById("stepCounter").innerText = `Step ${currentStepIndex + 1} / ${steps.length}`;
+            document.getElementById("btnPrev").disabled = currentStepIndex === 0;
+            document.getElementById("btnNext").disabled = currentStepIndex === steps.length - 1;
+
+            document.getElementById("stepTitle").innerText = step.title;
+            document.getElementById("algorithmNote").innerHTML = `
+                <div class="rounded-xl border border-indigo-400/30 bg-indigo-950/50 px-5 py-4 shadow-inner">
+                    <div class="text-xs font-bold uppercase tracking-wider text-indigo-300 mb-1.5">Algorithm used in this step</div>
+                    <div class="text-base leading-7 text-slate-100">${step.algorithm}</div>
+                </div>`;
+            document.getElementById("stepDetails").innerHTML = step.details;
+            document.getElementById("remainingTimeSliceText").innerText = step.remG;
+
+            document.getElementById("v0TempBadge").innerText = `Temp: ${step.v0Temp}`;
+            document.getElementById("v1TempBadge").innerText = `Temp: ${step.v1Temp}`;
+
+            const queueContainer = document.getElementById("queueContainer");
+            queueContainer.innerHTML = step.queue.map(q => `
+                <div class="px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs flex items-center gap-2">
+                    <span class="font-bold text-indigo-300">${q.id}</span>
+                    <span class="code-font text-slate-400">${q.rem}</span>
+                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-amber-400 border border-slate-700">${q.heat}</span>
+                </div>
+            `).join('');
+
+            const renderTrack = (containerId, blocks) => {
+                const container = document.getElementById(containerId);
+                container.innerHTML = blocks.map(b => `
+                    <div class="${b.col} border-r border-slate-900 text-slate-950 font-bold text-[11px] flex items-center justify-center frame-transition shadow-inner" style="width: ${b.width}%;">
+                        ${b.label}
+                    </div>
+                `).join('');
+            };
+
+            renderTrack("ganttTrackV0", step.v0Blocks);
+            renderTrack("ganttTrackV1", step.v1Blocks);
+        }
+
+        function changeStep(delta) {
+            currentStepIndex = Math.max(0, Math.min(steps.length - 1, currentStepIndex + delta));
+            updateStepView();
+        }
+
+        renderTable();
+        updateStepView();
+    </script>
+</body>
+</html>
